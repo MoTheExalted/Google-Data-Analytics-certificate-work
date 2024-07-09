@@ -1,0 +1,73 @@
+---
+title: "Fitbit Data Analysis"
+output: html_notebook
+---
+
+The activity asks to choose one product to promote through an analysis, though, none of the datasets make it clear, what the user is using, so trying to focus trying to show how one product is being more used than another is impossible. Therefore, I will use this analysis as a way of going through the widest data available in the set and show how and if people are getting any benefit out of the app and what the people who are using the app are like.
+
+I will begin by first importing the most useful tools for analysis in r. That is importing the tidyverse package.
+
+```{r include=FALSE}
+if (!requireNamespace("tidyverse", quietly = TRUE)) {
+  install.packages("tidyverse")
+}
+
+if (!requireNamespace("skimr", quietly = TRUE)) {
+  install.packages("skimr")
+}
+library(tidyverse)
+library(skimr)
+
+```
+
+Now to begin the analysis, I will be creating data frames out of data sets from the available data sets of the Fitbit consumer data from 4-12-2016 to 5-12-2016. I decided to pick these specific data sets in short because they are wide and contain useful information that helps build a general profile of the consumer, which I ultimately hope to do with this project.
+
+```{r echo=TRUE}
+# Create a dataframe named 'daily_activity' and read in the dailyActivity_merged 
+# There are a bunch of features with information about the daily activity of a user
+
+daily_activity <- read.csv("dailyActivity_merged.csv")
+
+# Create another dataframe for the sleep data. 
+# this table is not all that useful, I suspect that it just shows people don't 
+# use the tracker for sleep
+sleep_day <- read.csv("sleepDay_merged.csv")
+
+# Create one last dataframe for the weight data. 
+# this table is not all that useful on its own, which is why it will later
+# be merged with the daily activity data frame, so that I can later show what kind 
+# of people are recording their daily activity
+weight_data <- read.csv("weightLogInfo_merged.csv")
+```
+
+So far there are three data frames that are not that useful on their own. However, later,
+some merging will occur which will tell exactly who is using the app so that more promotions could
+be held targeting that group.
+
+I want to start by trying to see first what kind of data is stored in the data sets. This is so
+I can plan for the analysis and see what I may or may not have to do.
+
+```{r echo=TRUE}
+skim(daily_activity)
+```
+
+The summary above reveals that there are 15 columns in the daily_activity data set.
+There is one column filled with dates and the values in the column count up to 31, signifying that there are up to 31 records or rows for a single consumer. There is a column that contains the ID of the user. There are also a bunch of numeric columns that could be useful in telling how active the consumers actually are later with some visuals.
+
+Here is a summary of the sleep_day data set
+
+```{r echo=TRUE}
+skim(sleep_day)
+```
+
+The sleep_day data set has 5 columns. It has 1 column that tells the date which was recorded by the user. 1 column that contains the ID of the user. The other 3 columns contain numeric data about the sleep a user had in a day
+
+Here is a summary of the weight log information that was recorded.
+
+```{r echo=TRUE}
+skim(weight_data)
+```
+
+The weightLogInfo data set has 8 columns. It has 1 column that contains dates, another which indicates if the user did the report themselves or not. The rest of the columns contain numerical data about how much a user weighs and estimated fat ratios. 
+
+By going through each of the data sets and seeing what kind of data is stored, I observed that there is a common column amongst the tables, the ID column, which will help with merging. In this part of the document, I want to show some visualizations of the data sets that will help paint a picture of the consumers using the Fitbit app. 
