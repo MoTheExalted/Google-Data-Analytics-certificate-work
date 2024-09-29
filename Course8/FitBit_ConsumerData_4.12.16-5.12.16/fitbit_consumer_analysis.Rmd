@@ -3,9 +3,11 @@ title: "Fitbit Data Analysis"
 output: html_notebook
 ---
 
-The activity asks to choose one product to promote through an analysis, though, none of the datasets make it clear, what the user is using, so trying to focus trying to show how one product is being more used than another is impossible. Therefore, I will use this analysis as a way of going through the widest data available in the set and show how and if people are getting any benefit out of the app and what the people who are using the app are like.
+# Introduction of the Dataset
 
-I will begin by first importing the most useful tools for analysis in r. That is importing the tidyverse package.
+The activity asks to choose one product to promote through an analysis, though, none of the datasets make it clear, what the user is using, so trying to focus on showing how one product is being more used than another is impossible. Therefore, I will use this analysis as a way of going through the widest data available in the set and show how and if people are getting any benefit out of the app and what the people who are using the app are like.
+
+I will begin by first importing the most useful tools for analysis in r.
 
 ```{r include=FALSE}
 if (!requireNamespace("tidyverse", quietly = TRUE)) {
@@ -20,7 +22,7 @@ library(skimr)
 
 ```
 
-Now to begin the analysis, I will be creating data frames out of data sets from the available data sets of the Fitbit consumer data from 4-12-2016 to 5-12-2016. I decided to pick these specific data sets in short because they are wide and contain useful information that helps build a general profile of the consumer, which I ultimately hope to do with this project.
+Now to begin the analysis, I will be creating data frames out of data sets from the available datasets of the Fitbit consumer data from 4-12-2016 to 5-12-2016. I decided to pick these specific data sets in short because they are wide and contain useful information that helps build a general profile of the consumer, which I ultimately hope to do with this project.
 
 ```{r echo=TRUE}
 # Create a dataframe named 'daily_activity' and read in the dailyActivity_merged 
@@ -40,19 +42,15 @@ sleep_day <- read.csv("sleepDay_merged.csv")
 weight_data <- read.csv("weightLogInfo_merged.csv")
 ```
 
-So far there are three data frames that are not that useful on their own. However, later,
-some merging will occur which will tell exactly who is using the app so that more promotions could
-be held targeting that group.
+So far there are three data frames that are not that useful on their own. However, later, some merging will occur which will tell exactly who is using the app so that more promotions could be held targeting that group.
 
-I want to start by trying to see first what kind of data is stored in the data sets. This is so
-I can plan for the analysis and see what I may or may not have to do.
+I want to start by trying to see first what kind of data is stored in the data sets. This is so I can plan for the analysis and see what I may or may not have to do.
 
 ```{r echo=TRUE}
 skim(daily_activity)
 ```
 
-The summary above reveals that there are 15 columns in the daily_activity data set.
-There is one column filled with dates and the values in the column count up to 31, signifying that there are up to 31 records or rows for a single consumer. There is a column that contains the ID of the user. There are also a bunch of numeric columns that could be useful in telling how active the consumers actually are later with some visuals.
+The summary above reveals that there are 15 columns in the daily_activity data set. There is one column filled with dates and the values in the column count up to 31, signifying that there are up to 31 records or rows for a single consumer. There is a column that contains the ID of the user. There are also a bunch of numeric columns that could be useful in telling how active the consumers actually are later with some visuals.
 
 Here is a summary of the sleep_day data set
 
@@ -68,6 +66,121 @@ Here is a summary of the weight log information that was recorded.
 skim(weight_data)
 ```
 
-The weightLogInfo data set has 8 columns. It has 1 column that contains dates, another which indicates if the user did the report themselves or not. The rest of the columns contain numerical data about how much a user weighs and estimated fat ratios. 
+## Cleaning the Dataset
 
-By going through each of the data sets and seeing what kind of data is stored, I observed that there is a common column amongst the tables, the ID column, which will help with merging. In this part of the document, I want to show some visualizations of the data sets that will help paint a picture of the consumers using the Fitbit app. 
+The weightLogInfo data set has 8 columns. It has 1 column that contains dates, another which indicates if the user did the report themselves or not. The rest of the columns contain numerical data about how much a user weighs and estimated fat ratios.
+
+By going through each of the data sets and seeing what kind of data is stored, I observed that there is a common column among the tables: the ID column and Date column, which will help with merging. In this part of the analysis, I want to show some visualizations of the data sets that will help paint a picture of the consumers using the Fitbit app. However, since the date column contains time information for the weight_data and sleep_day data, I need to handle the column before I can merge the data sets for visualizations. I decided to completely get rid of the specific time that the user logged the information in. The time is not important since all I want to do with this analysis is see If I can paint a picture of the users and their habits.
+
+```{r echo=TRUE}
+daily_activity <- daily_activity %>%
+  mutate(Date = as.Date(ActivityDate, format = "%m/%d/%Y"))
+
+daily_activity <- daily_activity %>%
+    select(-ActivityDate)
+
+weight_data <- weight_data %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y"))
+
+sleep_day <- sleep_day %>%
+  mutate(Date = as.Date(SleepDay, format = "%m/%d/%Y"))
+
+sleep_day <- sleep_day %>%
+  select(-SleepDay)
+```
+
+Now that all of my data sets have a common column in both their id and dates, I can merge them.
+
+```{r}
+# Merge daily_activity with sleep_day by user ID and date
+activity_sleep_data <- daily_activity %>%
+  left_join(sleep_day, by = c("Id", "Date"))
+
+# Merge the result with weightLogInfo
+final_data <- activity_sleep_data %>%
+  left_join(weight_data, by = c("Id", "Date"))
+```
+
+After merging the data, I noticed there are a lot of null values now since the weight data isn't repeated for all of the users and some of the users clearly did not put in their bmi, so it makes it hard to try and use this data to paint a picture of the users. I believe an easy to approach solution would be to fill in the null values with the average bmi of the user for the month. Not only will I be doing this for the BMI but also for the TotalMinutesAsleep column, as I want to use it later for a visualization.
+
+```{r}
+final_data <- final_data %>%
+  group_by(Id) %>%
+  mutate(BMI = ifelse(is.na(BMI),
+mean (BMI, na.rm = TRUE), BMI)) %>%
+  ungroup()
+
+final_data <- final_data %>%
+  group_by(Id) %>%
+  mutate(TotalMinutesAsleep  = ifelse(is.na(TotalMinutesAsleep ),
+mean (TotalMinutesAsleep , na.rm = TRUE), TotalMinutesAsleep )) %>%
+  ungroup()
+
+# some users did not put any number for their time asleep so I will be replacing it with the column's average
+
+column_avg <- mean(final_data$TotalMinutesAsleep, na.rm = TRUE)
+
+final_data <- final_data %>%
+  mutate(TotalMinutesAsleep = ifelse(is.na(TotalMinutesAsleep), column_avg, TotalMinutesAsleep))
+```
+
+After trying to fill in the missing BMI values, and seeing the results of that table, I've realized that using the BMI is pointless since so many users did not log a single BMI, which leaves the values as missing. Since so many of the values are missing pertaining to the weight of the individual, I will not be trying to paint a picture of the users.
+
+Instead I will just try to show trends of if the app is being used consistently and if the people who log more tend to be active or not.
+
+### Analysis and Visualizations
+
+Most sources recommend the average person to walk 8 kilometers or 5 miles daily for health benefits. (<https://www.medicalnewstoday.com/articles/how-many-steps-should-you-take-a-day#for-general-health>)
+
+```{r}
+# Line plot for the daily walking distances for each user
+ggplot(final_data, aes(x= Date, y = TotalDistance, color =as.factor(Id))) +
+  geom_line() +
+  labs(title = "Total Steps Over Time by User",
+       x = "Date",
+       y = "Total Steps",
+       color = "Id") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45,hjust = 1))
+
+#I would like to see the average as well as a visual of the data
+average_dist <- mean(final_data$TotalDistance, na.rm = TRUE)
+print(paste("The average distance walked in by the users is:", average_dist))
+```
+
+The total distance over the month by users visual shows that the average distance walked daily for a user is between 5-8 kilometers which isn't that bad but well below what is recommended. The actual calculated average is around 5.5 kilometers which shows that most people in this data set are not very active when it comes to walking.
+
+At this point I am also curious how active/good the users are at logging in their activity for the day.
+
+```{r}
+unique_counts <- final_data %>%
+  count(Id)
+print(unique_counts)
+```
+
+Most people seem to be pretty good at logging their daily activity regardless of if they walked or traveled the recommended amount. The code above just groups the records by unique id and counts up how many times the unique id shows up.
+
+For the final visualization I'm curious to see if there is any correlations between how much a person sleeps and how active a person is.
+
+```{r echo=TRUE}
+# Scatter plot: Sleep duration vs. Total Steps
+ggplot(final_data, aes(x = TotalMinutesAsleep, y = TotalSteps, color = as.factor(Id))) +
+  geom_point(size = 2, alpha = 0.6) +
+  labs(title = "Sleep Duration vs. Total Steps",
+       x = "Total Minutes Asleep", 
+       y = "Total Steps", 
+       color = "User ID") +
+  theme_minimal()
+
+```
+
+There doesn't seem to be any clear linear relationships that indicate a correlation between sleeping and steps taken. However, a lot of the points seem to cluster around 400 minutes asleep and around 10,000 steps, which may indicate that people typically do rest a certain and similar amount if they walk around 10,000 steps. This may indicate a soft correlation. R makes it easy to calculate a correlation coefficient and checking if it is statistically significant or not.
+
+```{r}
+cor_test_result <- cor.test(final_data$TotalMinutesAsleep, final_data$TotalSteps)
+
+print(paste("The correlation coefficient is ", cor_test_result$estimate))
+
+```
+
+The value of -0.1419 on the correlation coefficient test suggests that the total minutes asleep and total steps columns have a very weak negative correlation. This is not to just say now that sleep and activity are definitely not correlated however. The data itself may be very biased and we don't really know much about the users due to so much missing data. But the fact that it shows up very slightly negatively correlated makes me interested in researching sleep and physical activity and if people really need sleep if they are someone who walks a good amount. It makes me wonder now if walking or high steps in general impact sleep quality at all.
